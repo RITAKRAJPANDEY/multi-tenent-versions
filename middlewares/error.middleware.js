@@ -9,6 +9,5 @@ module.exports = (err,req,res,next)=>{
         status,
         message:err.isOperational?err.message:"Internal Server Error",
         error:err.error||null,
-        
     })
 }
