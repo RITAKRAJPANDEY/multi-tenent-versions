@@ -20,3 +20,7 @@ exports.addRefreshHash=async(refresh_hash,user_id)=>{
     const result = await pool.query(`INSERT INTO refresh_tokens (refresh_hash,user_id) VALUES ($1,$2) RETURNING created_at,expires_in `,[refresh_hash,user_id]);
     return result.rows[0]||null;
 }
+exports.findRefreshToken=async(refreshHash)=>{
+    const result = await pool.query(`SELECT revoked,expires_in FROM refresh_tokens WHERE refresh_hash = $1`,[refreshHash]);
+    return result.rows[0]||null;
+}
