@@ -1,5 +1,5 @@
 const AppError = require("../errors/appError");
-const { addUserPassword, findUserByUsername, addRefreshHash, findRefreshToken } = require("../repositories/auth.repo");
+const { addUserPassword, findUserByUsername, addRefreshHash, findRefreshToken, revokeAllTokens, addNewRefreshToken, revokeToken } = require("../repositories/auth.repo");
 const { bcryptHash, bcryptCompare } = require("../utils/bcrypt.util");
 const { genRefreshToken, cryptoHash } = require("../utils/crypto.util");
 const { genAccessToken } = require("../utils/jwt.util");
@@ -41,19 +41,43 @@ exports.loginUserService = async ({ username, password }) => {
    } catch (err) {
       throw new AppError('session creation failed',500)
    }
-   const accessToken = genAccessToken(user.id, user.role,user.is_revoked);//user.tenant_id
+   const accessToken = genAccessToken(user.id, user.role);//user.tenant_id
    return { accessToken: accessToken, refreshToken: refreshToken,is_revoked:user.is_revoked}
 }
 exports.refreshUserService=async({refreshToken})=>{
    const refreshHash=cryptoHash(refreshToken);
+   try{
    const user = await findRefreshToken(refreshHash);// search -> revoked -> new tokens ->return
    if(!user){
       throw new AppError('Unauthorized',401);
    } 
-   if(!user.revoked){
+   if(user.revoked){
+	   await revokeAllTokens(user.user_id);
+      throw new AppError('Forbidden',403);
+   }
+   if(new Date(user.expires_in).getTime()<Date.now()){ // psql data is in string so make sure that you convert it first 
+	throw new AppError('Unauthorized',401);
+   }
+   const newRefreshToken= genRefreshToken();
+   const newRefreshHash=cryptoHash(newRefreshToken);
+
+   await addNewRefreshToken(refreshHash,user.id,newRefreshHash);// make a atomic transaction which revokes previous refreshtoken and adds the new one 
+   const newAccessToken =  genAccessToken(user.user_id,)
+   return{refreshToken:newRefreshToken,accessToken:newAccessToken}
+}catch(err){
+   if(err.message==='INVALID_REFRESH_TOKEN'){
       throw new AppError('Unauthorized',401);
    }
-   if(user.expires_in< Date()){
-
+   if(err.message==='TOKEN_ALREADY_REVOKED'){
+      throw new AppError('Forbidden',403);
+   }
+   throw err;
+}
+}
+exports.logoutUserService= async({refreshToken})=>{
+   const refreshHash = cryptoHash(refreshToken);
+   const revoke = await revokeToken(refreshHash);
+   if(!revoke){
+      throw new AppError('Unauthorized',401);
    }
 }
