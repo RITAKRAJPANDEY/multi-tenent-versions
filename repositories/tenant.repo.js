@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+
 exports.addTenantRepo = async (tenantname, apiKeyHash) => {
    const client = await pool.connect();
    try {
@@ -18,4 +19,9 @@ exports.addTenantRepo = async (tenantname, apiKeyHash) => {
    } finally {
       client.release();
    }
+}
+
+exports.findTenantByApiKey= async(apiKeyHash)=>{
+   const result = await pool.query(`SELECT tenant_id,revoked_at FROM api_keys WHERE api_key_hash = $1`,[apiKeyHash]);
+   return result.rows[0]||null;
 }

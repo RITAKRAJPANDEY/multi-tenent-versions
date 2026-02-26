@@ -15,3 +15,7 @@ exports.createTenantService=async({tenantname})=>{
         console.error(err);
     }
 }
+
+exports.addtenantEventsService=async({payload,type,tenant_id})=>{
+   
+}
