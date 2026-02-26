@@ -25,3 +25,8 @@ exports.findTenantByApiKey= async(apiKeyHash)=>{
    const result = await pool.query(`SELECT tenant_id,revoked_at FROM api_keys WHERE api_key_hash = $1`,[apiKeyHash]);
    return result.rows[0]||null;
 }
+
+exports.addtenantEventRepo=async(tenant_id,type,payload)=>{
+   const result = await pool.query(`INSERT INTO tenant_events (tenant_id,type,payload) VALUES ($1,$2,$3) RETURNING created_at `,[tenant_id,type,payload]);
+   return result.rows[0]||null;
+}

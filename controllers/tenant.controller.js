@@ -1,4 +1,4 @@
-const { createTenantService } = require("../services/tenant.service");
+const { createTenantService, addtenantEventService } = require("../services/tenant.service");
 
 exports.createTenantController = async (req, res, next) => {
     try {
@@ -11,8 +11,10 @@ exports.createTenantController = async (req, res, next) => {
 
 exports.addTenantEventsController = async (req, res, next) => {
     try {
-        const tenant = await addtenantEventsService(req.body);
-        res.status(201).json({success:true});
+        const tenant_id = req.client.tenant_id;
+        const {payload,type} = req.body;
+        const tenant = await addtenantEventService({tenant_id,payload,type});
+        res.status(201).json({success:true,event_created_at:tenant.created_at});
     } catch (err) {
         next(err)
     }

@@ -1,5 +1,5 @@
 const AppError = require("../errors/appError");
-const { addTenantRepo } = require("../repositories/tenant.repo");
+const { addTenantRepo, addtenantEventRepo } = require("../repositories/tenant.repo");
 const { genRandomBytes, cryptoHash } = require("../utils/crypto.util");
 
 exports.createTenantService=async({tenantname})=>{
@@ -16,6 +16,12 @@ exports.createTenantService=async({tenantname})=>{
     }
 }
 
-exports.addtenantEventsService=async({payload,type,tenant_id})=>{
-   
+exports.addtenantEventService=async({payload,type,tenant_id})=>{
+    try{
+   const event = await addtenantEventRepo(tenant_id,type,payload);
+   return {created_at:event.created_at};
+    }catch(err){
+        console.error(err);
+        throw new AppError('Unable to Add Event',404)
+    }
 }
