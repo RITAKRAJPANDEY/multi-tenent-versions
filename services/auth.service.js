@@ -1,7 +1,7 @@
 const AppError = require("../errors/appError");
 const { addUserPassword, findUserByUsername, addRefreshHash, findRefreshToken, revokeAllTokens, addNewRefreshToken, revokeToken } = require("../repositories/auth.repo");
 const { bcryptHash, bcryptCompare } = require("../utils/bcrypt.util");
-const { genRefreshToken, cryptoHash } = require("../utils/crypto.util");
+const { genRandomBytes, cryptoHash } = require("../utils/crypto.util");
 const { genAccessToken } = require("../utils/jwt.util");
 
 exports.verifyUserService = async ({ username, password, role }) => {
@@ -31,7 +31,7 @@ exports.loginUserService = async ({ username, password }) => {
    if (!isValid) {
       throw new AppError('unauthorized', 401);
    }
-   const refreshToken = genRefreshToken();
+   const refreshToken = genRandomBytes();
    const refresh_hash = cryptoHash(refreshToken);
    try {
       const addRefresh_hash = await addRefreshHash(refresh_hash, user.id);
@@ -39,7 +39,9 @@ exports.loginUserService = async ({ username, password }) => {
          throw new AppError('session creataion failed',500)
       }
    } catch (err) {
+      console.error(err);
       throw new AppError('session creation failed',500)
+      
    }
    const accessToken = genAccessToken(user.id, user.role);//user.tenant_id
    return { accessToken: accessToken, refreshToken: refreshToken,is_revoked:user.is_revoked}
@@ -58,7 +60,7 @@ exports.refreshUserService=async({refreshToken})=>{
    if(new Date(user.expires_in).getTime()<Date.now()){ // psql data is in string so make sure that you convert it first 
 	throw new AppError('Unauthorized',401);
    }
-   const newRefreshToken= genRefreshToken();
+   const newRefreshToken= genRandomBytes();
    const newRefreshHash=cryptoHash(newRefreshToken);
 
    await addNewRefreshToken(refreshHash,user.id,newRefreshHash);// make a atomic transaction which revokes previous refreshtoken and adds the new one 

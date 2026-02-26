@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-exports.genRefreshToken=()=>{
+exports.genRandomBytes=()=>{
     return crypto.randomBytes(32).toString('hex');
 }
 exports.cryptoHash=(refreshToken)=>{
