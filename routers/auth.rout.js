@@ -6,5 +6,5 @@ const { userAuthValidationMiddleware } = require('../middlewares/validator.middl
 router.post('/verify',validateUserAuth,userAuthValidationMiddleware,verifyUserController);
 router.post('/login',validateUserAuth,userAuthValidationMiddleware,loginUserController);
 router.post('/refresh',refreshUserController);
-router.post('logout',logoutUserController);
+router.post('/logout',logoutUserController);
 module.exports = router;

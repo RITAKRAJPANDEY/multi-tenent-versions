@@ -26,7 +26,32 @@ exports.findTenantByApiKey= async(apiKeyHash)=>{
    return result.rows[0]||null;
 }
 
-exports.addtenantEventRepo=async(tenant_id,type,payload)=>{
+exports.addTenantEventRepo=async(tenant_id,type,payload)=>{
    const result = await pool.query(`INSERT INTO tenant_events (tenant_id,type,payload) VALUES ($1,$2,$3) RETURNING created_at `,[tenant_id,type,payload]);
    return result.rows[0]||null;
+}
+exports.viewTenantEventRepo = async({tenant_id,filters,limit,cursor})=>{
+   const values =[tenant_id];
+   const conditions =[];
+   let index=2;
+   let query=`SELECT * FROM tenant_events WHERE tenant_id = $1 `;
+   if(filters.type){
+      conditions.push(` type = $${index++}`);
+      values.push(filters.type);
+   }
+   if(filters.from&&filters.to){
+      conditions.push(`created_at >= $${index++}::timestamptz AND created_at <= $${index++}::timestamptz `);
+      values.push(filters.from,filters.to);
+   }
+   if(cursor){
+      conditions.push(` (created_at,id) <($${index++}::timestamptz ,$${index++})`);
+      values.push(cursor.created_at,cursor.id);
+   }
+   if(conditions.length){
+   query+=` AND ${conditions.join(" AND ")}`
+   }
+   query+=`ORDER BY created_at DESC id DESC LIMIT $${index++}`;
+   values.push(limit);
+   const result = await pool.query(query,values);
+   return result.rows||null;
 }
