@@ -1,28 +1,194 @@
 # 🏢 `multiTenantV1`
 
-A lightweight Node.js/Express boilerplate for a multi‑tenant backend.  
-Currently the only implemented feature is **user authentication**; further tenant‑specific APIs are on the roadmap.
+A **full-stack Node.js/Express boilerplate with built‑in multi‑tenant support**, currently shipping
+robust authentication and tenant API key management.  
+This repository demonstrates a layered architecture with clear separation between
+controllers, services and repositories, and comes with validation and error-handling middleware.
 
-> **Note:** This README reflects the state of the project as of Feb‑2026: auth only.
+> **Status (Mar‑2026):** All of authentication, tenant registration and event ingestion/lookup are
+implemented and battle‑tested. Future work will add per‑tenant resources and authorization.
 
 ---
 
-## 🔧 Features (so far)
+## 🔧 Core Features
 
-- Email/password signup & login  
-- JWT‑based sessions  
-- Organized MVC structure with:
+- **User authentication**
+  - Sign‑up (verify), login, refresh, logout
+  - Password hashing with bcrypt
+  - Refresh‑token rotation with revocation strategy
+  - JWT access tokens with role/tenant payloads
+  - Validation of credentials using `express-validator` schemas
+- **Multi‑tenant primitives**
+  - Tenant registration with auto‑generated API key
+  - API‑key middleware (`X-API-Key` header) to authenticate
+  - Event ingestion (`type` + `payload` JSONB) per tenant
+  - Event querying with filters, pagination cursor, time window
+- Clean MVC layout:
   - `controllers/`, `services/`, `repositories/`
-  - middleware for validation, errors, and auth
-- Utilities for bcrypt, crypto, and JWT handling
-- Database connection helper in `config/db.js`
-- Route definitions in `routers/auth.rout.js`
-
-*Multi‑tenant logic (tenant controller, repo, etc.) exists but is not yet wired into business logic.*
+  - `middlewares/` for auth, validation and error handling
+  - `utils/` for reusable cryptographic helpers (bcrypt, crypto, JWT)
+- PostgreSQL integration via `pg` pool helper (`config/db.js`)
+- Basic request/response conventions and error handling using `AppError`
 
 ---
 
-## 🚀 Getting Started
+## 🛠️ Prerequisites & Setup
+
+Clone, install, and configure environment variables before running the server.
+
+```bash
+git clone <your‑repo‑url>
+cd multiTenantV1
+npm install
+```
+
+Create a `.env` file or export variables:
+
+```
+PORT=3000
+DB_USER=postgres
+DB_HOST=localhost
+DB_DATABASE=multi_tenant
+DB_PASSWORD=secret
+DB_PORT=5432
+JWT_SECRET=your_jwt_secret
+```
+
+Start the application:
+
+```bash
+npm start                # or `node server.js`
+# for development prefer `nodemon server.js` with a `dev` script
+```
+
+The Express app listens on `PORT` (default 3000).
+
+---
+
+## 🔗 API Endpoints
+
+All routes are prefixed with `/api` by default (`server.js` config).
+
+### Authentication
+
+| Method | Path                  | Body schema                   | Description                       | Response codes                     |
+|--------|-----------------------|-------------------------------|-----------------------------------|------------------------------------|
+| POST   | `/api/auth/verify`    | `{username, password, role}`  | Register a new user (hash stored) | 201 created / 409 user exists      |
+| POST   | `/api/auth/login`     | `{username, password}`        | Issue access + refresh tokens     | 202 accepted / 401/403 errors      |
+| POST   | `/api/auth/refresh`   | `{refreshToken}`              | Rotate tokens (access/refresh)    | 200 OK / 401/403                   |
+| POST   | `/api/auth/logout`    | `{refreshToken}`              | Revoke a refresh token            | 204 no content / 401              |
+
+> **Validation**: The `validator/user.validator.js` schema enforces
+> username length 3‑30, password 8‑12 characters with mixed case, digits, special
+> characters. Errors are handled by `validator.middleware.js`.
+
+**Token handling details**
+
+- Access tokens are JWTs signed with `JWT_SECRET`. Payload contains `userId` and
+  `role` (tenant will be added later).
+- Refresh tokens are unpredictable 64‑byte hex strings; a SHA‑256 hash is
+  stored in the `refresh_tokens` table. Rotation uses a DB transaction to
+  mark the old token revoked and insert the new hash, preventing replay.
+- Revoked or expired refresh tokens produce `401` or `403` errors as
+  appropriate. See `services/auth.service.js` for logic.
+
+### Tenant Management & Events
+
+| Method | Path                  | Header/Body                                        | Description                                           |
+|--------|-----------------------|----------------------------------------------------|-------------------------------------------------------|
+| POST   | `/api/tenant/register`| `{tenantname}`                                     | Create tenant; returns generated API key             |
+| POST   | `/api/tenant/add/events` | Header: `X-API-Key: <key>`<br/>Body `{payload,type}` | Ingest an arbitrary JSON event for the tenant        |
+| GET    | `/api/tenant/view/events`| Header: `X-API-Key`<br/>Query params (see below)   | List events with filters and cursor pagination       |
+
+> **API key middleware**: `middlewares/tenant.apiKey.middleware.js` hashes
+> incoming key and looks up `api_keys` table. Revoked keys are rejected. On
+> success `req.client` gains `{tenant_id}` for downstream handlers.
+
+**Event filtering parameters**
+
+- `type` — string equality filter
+- `from`, `to` — ISO‑8601 timestamps bounding `created_at`
+- `limit` — maximum number of rows to return (default 100)
+- `cursor` — object `{created_at,id}` used for cursor‑based pagination
+  (descending order). Requires previous response values.
+
+Server-side code composes SQL queries dynamically to support combinations of
+these filters (see `repositories/tenant.repo.js`).
+
+### Error Structure
+
+All operational errors use the custom `AppError` class. The error middleware
+(`middlewares/error.middleware.js`) returns JSON:
+
+```json
+{ "success": false, "message": "<reason>", "status": <httpStatus> }
+```
+
+Validation failures produce a `400` with an array of field errors.
+
+---
+
+## 📁 Project Structure Overview
+
+```
+config/           – PostgreSQL helper (pg Pool)
+controllers/      – Express route handlers (thin layer)
+middlewares/      – auth, tenant api‑key, validation, error handling
+repositories/     – raw SQL queries & transactions
+routers/          – Express routers wired to controllers
+services/         – business logic & domain rules
+utils/            – bcrypt util, crypto hashing, JWT token helpers
+validator/        – express-validator schemas for request bodies
+errors/           – custom AppError class
+```
+
+Each layer returns plain JavaScript objects; Express handles JSON serialization.
+
+---
+
+## 🧠 Internal Utilities
+
+- `utils/bcrypt.util.js` – wraps `bcrypt.hash`/`compare` with sensible defaults
+- `utils/crypto.util.js` – `genRandomBytes` (hex), SHA‑256 hashing
+- `utils/jwt.util.js` – functions for signing/verify access tokens
+
+These utilities are deliberately small so the core logic remains readable.
+
+---
+
+## 🛠 Development Tips
+
+- Add environment variables via `.env` or your process manager.
+- Run `npm run dev` (if configured) to use `nodemon` for auto‑reload.
+- SQL tables expected by the repos include `tenant_users`, `refresh_tokens`,
+  `tenants`, `api_keys`, and `tenant_events`; migrations are not included here.
+- You can test API key middleware by hitting `/api/tenant/register` then
+  copying the returned `apiKey` for subsequent requests.
+
+---
+
+## 🎯 Roadmap & TODOs
+
+1. Add per‑tenant authorization and associate users with tenants.
+2. Implement tenant resource CRUD operations (e.g. projects, documents).
+3. Migrate SQL queries into a proper query builder or ORM for maintainability.
+4. Write unit/integration tests and add CI configuration.
+5. Improve error messages and log correlation IDs.
+6. Add rate limiting per tenant using the API key.
+
+Contributions welcome! The code is intentionally minimal so you can pivot
+quickly into new feature work.
+
+---
+
+## 📄 License
+
+[Insert license here, e.g. MIT]
+
+---
+
+Feel free to fork and build your own multi‑tenant backends – this boilerplate is
+meant to give you a head start on the hard bits.
 
 1. **Clone the repo**
 
