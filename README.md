@@ -37,7 +37,7 @@ implemented and battle‑tested. Future work will add per‑tenant resources and
 Clone, install, and configure environment variables before running the server.
 
 ```bash
-git clone <your‑repo‑url>
+git clone <https://github.com/RITAKRAJPANDEY/multi-tenent-versions.git>
 cd multiTenantV1
 npm install
 ```
@@ -274,4 +274,3 @@ validator/        – Joi schemas, etc.
 
 ---
 
-Feel free to extend this README as you build out the multi‑tenant features – it’s already set up to grow with the project.
