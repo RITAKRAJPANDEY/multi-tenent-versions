@@ -8,7 +8,10 @@ exports.tenantApiValidator=async(req,res,next)=>{
             throw new AppError ('Unauthorized',401);
         }
         const authKeyHash = cryptoHash(authHead);
+        console.log('DEBUG: X-API-Key header:', authHead);
+        console.log('DEBUG: computed hash:', authKeyHash);
         const tenant = await findTenantByApiKey(authKeyHash);
+        console.log('DEBUG: tenant lookup result:', tenant);
         if(!tenant){
             throw new AppError('Unauthorized',401);
         }

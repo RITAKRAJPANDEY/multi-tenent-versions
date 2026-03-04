@@ -40,13 +40,13 @@ exports.addNewRefreshToken = async (refreshHash, user_id, newRefreshHash) => {
         const lockRes = await client.query(`SELECT id FROM refresh_tokens WHERE refresh_hash = $1 AND user_id = $2 FOR UPDATE`,[refreshHash, user_id]);
 
         if (lockRes.rowCount === 0) {
-            throw new Error('INVALID_REFRESH_TOKEN');
+            throw new Error('INVALID_REFRESH_TOKEN',400);
         }
 
         const updateRes = await client.query(`UPDATE refresh_tokens SET revoked =$1 , replaced_with = $2 WHERE refresh_hash = $3   RETURNING id`, [true, newRefreshHash, refreshHash]);
 
         if (updateRes.rowCount === 0) {
-            throw new Error('TOKEN_ALREADY_REVOKED');
+            throw new Error('TOKEN_ALREADY_REVOKED',400);
         }
 
         const result = await client.query(`INSERT INTO refresh_tokens (refresh_hash,user_id) VALUES ($1,$2)`, [newRefreshHash, user_id]);

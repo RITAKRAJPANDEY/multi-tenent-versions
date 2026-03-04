@@ -1,5 +1,5 @@
 const AppError = require("../errors/appError");
-const { addTenantRepo,  addTenantEventRepo, viewTenantEventRepo } = require("../repositories/tenant.repo");
+const { addTenantRepo,  addTenantEventRepo, viewTenantEventRepo, checkIdempotencyRepo, addIdempotencyKeyRepo, addTenantEventRep } = require("../repositories/tenant.repo");
 const { decodeCursor, encodeCursor } = require("../utils/buffer.util");
 const { genRandomBytes, cryptoHash } = require("../utils/crypto.util");
 
@@ -17,13 +17,28 @@ exports.createTenantService = async ({ tenantname }) => {
     }
 }
 
-exports.addtenantEventService = async ({ payload, type, tenant_id }) => {
+exports.addtenantEventService = async ({tenant_id,idempotency_key,payload,type,body}) => {
     try {
-        const event = await addTenantEventRepo(tenant_id, type, payload);
-        return { created_at: event.created_at };
+        // first try to add the key as if it you will get to know if it already exists or not , if exists then return the response directly otherwise add the event in the required tables and send the response
+        const bodyString = JSON.stringify(body);
+        const req_hash =cryptoHash(bodyString);
+        const existing = await checkIdempotencyRepo(tenant_id,idempotency_key,req_hash);
+        console.log('DEBUG addtenantEventService: existing=', existing);
+        if(existing){
+            if(existing.req_hash!==req_hash){
+            throw new AppError('Unauthorized',403);
+            }
+            // existing.response_body may be null if the original request is still processing
+            // return a consistent object so callers can read `created_at` safely
+            // bug fixed by ai props to gpt
+            return { created_at: existing.created_at };
+        }
+        const addTenantEventAndKey = await addTenantEventRep(type, payload, idempotency_key, tenant_id);
+        return {created_at:addTenantEventAndKey.createdAt};
+      
     } catch (err) {
         console.error(err);
-        throw new AppError('Unable to Add Event', 404)
+        throw err;
     }
 }
 
