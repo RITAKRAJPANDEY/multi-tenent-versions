@@ -179,13 +179,7 @@ These utilities are deliberately small so the core logic remains readable.
 Contributions welcome! The code is intentionally minimal so you can pivot
 quickly into new feature work.
 
----
 
-## 📄 License
-
-[Insert license here, e.g. MIT]
-
----
 
 Feel free to fork and build your own multi‑tenant backends – this boilerplate is
 meant to give you a head start on the hard bits.
@@ -265,12 +259,4 @@ validator/        – Joi schemas, etc.
 2. Add authorization checks based on tenant membership.
 3. Expand the router/controller/service layers for tenant resources.
 4. Write tests and improve error handling.
-
----
-
-## 📄 License
-
-[Specify your license here]
-
----
 
