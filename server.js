@@ -7,6 +7,7 @@ app.use(express.json());
 app.use('/tenant',tenantRout);
 app.use('/user',authRout);
 app.use(require('./middlewares/error.middleware'));
-app.listen(3000,()=>{
-    console.log('Listening at port 3000...');
+const PORT = process.env.SERVER_PORT||3000;
+app.listen(PORT,()=>{
+    console.log(`Listening at port ${PORT}...`);
 });
